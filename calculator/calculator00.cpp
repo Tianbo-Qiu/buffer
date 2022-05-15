@@ -1,5 +1,11 @@
 #include "../lib/std_lib_facilities.h"
 
+const char number = '8'; // t.kind == number means that t is a number Token
+const char quit = 'q';   // t.kind == quit means that t is a quit Token
+const char print = ';';  // t.kind == print means that t is a print Token
+const char prompt = "< ";
+const char result = "= ";
+
 /**
  * A conventional way of reading stuff from input and store it
  * in a way that lets us look at it in convenient ways. 'tokenize'
@@ -10,7 +16,7 @@ public:
   double value;
   Token(char k) : kind{k}, value{0.0} {}
   Token(char k, double v) : kind{k}, value{v} {}
-  Token(double v) : kind{'8'}, value{v} {}
+  Token(double v) : kind{number}, value{v} {}
 };
 
 /**
@@ -65,8 +71,8 @@ Token Token_stream::get() {
   char ch;
   cin >> ch;
   switch (ch) {
-  case ';': // for "print"
-  case 'q': // for "quit"
+  case print: // for "print"
+  case quit:  // for "quit"
   case '(':
   case ')':
   case '+':
@@ -180,16 +186,16 @@ double expression() {
 int main() {
   try {
     while (cin) {
-      cout << "> ";
+      cout << prompt;
       Token t = ts.get();
-      while (t.kind == ';')
+      while (t.kind == print)
         t = ts.get(); // eat ';'
-      if (t.kind == 'q') {
+      if (t.kind == quit) {
         keep_window_open();
         return 0;
       }
       ts.putback(t);
-      cout << "= " << expression() << '\n';
+      cout << result << expression() << '\n';
     }
     keep_window_open();
   } catch (exception &e) {
