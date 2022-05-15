@@ -31,6 +31,8 @@ public:
  * Primary:
  *      Number
  *      ( Expression )       // grouping
+ *      + Primary
+ *      - Primary
  * Number:
  *      floating-point-literal
  */
@@ -71,6 +73,7 @@ Token Token_stream::get() {
   case '-':
   case '*':
   case '/':
+  case '%':
     return Token{ch};
   case '.':
   case '0':
@@ -110,6 +113,10 @@ double primary() {
   }
   case '8':
     return t.value;
+  case '-':
+    return -primary();
+  case '+':
+    return primary();
   default:
     error("primary expected");
   }
@@ -130,6 +137,14 @@ double term() {
       if (d == 0)
         error("divide by zero");
       left /= d;
+      t = ts.get();
+      break;
+    }
+    case '%': {
+      double d = primary();
+      if (d == 0)
+        error("%:divide by zero");
+      left = fmod(left, d);
       t = ts.get();
       break;
     }
@@ -164,26 +179,26 @@ double expression() {
 // main loop and deal with errors
 int main() {
   try {
-    double val = 0;
-    cout << "Expression (end with ';' and quit with 'q'):\n";
     while (cin) {
+      cout << "> ";
       Token t = ts.get();
-      if (t.kind == 'q')
-        break;           // quit
-      if (t.kind == ';') // print now
-        cout << "=" << val << '\n';
-      else
-        ts.putback(t);
-      val = expression();
+      while (t.kind == ';')
+        t = ts.get(); // eat ';'
+      if (t.kind == 'q') {
+        keep_window_open();
+        return 0;
+      }
+      ts.putback(t);
+      cout << "= " << expression() << '\n';
     }
     keep_window_open();
   } catch (exception &e) {
     cerr << e.what() << '\n';
-    keep_window_open();
+    keep_window_open("~~");
     return 1;
   } catch (...) {
     cerr << "exception \n";
-    keep_window_open();
+    keep_window_open("~~");
     return 2;
   }
 }
