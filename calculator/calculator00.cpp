@@ -38,8 +38,11 @@
  *         ( Expression )
  *         -Primary
  *         +Primary
+ *         Variable
  * Number:
  *         floating-point-literal
+ * Varable:
+ *         { Name, Number } pair
  *
  * Input comes from cin through the Token_stream called ts.
  */
@@ -275,6 +278,9 @@ double primary() {
   case '+':
     return primary();
   default:
+    if (t.kind == name) {
+      return get_value(t.name);
+    }
     error("primary expected");
   }
 }
