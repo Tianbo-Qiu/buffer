@@ -1,10 +1,46 @@
+/*
+ * Simple calculator
+ *
+ * Revision history:
+ *  Revised by ...
+ *
+ * This program implements a basic expression calculator.
+ * Input from cin; output form cout.
+ * The grammar for input is:
+ * Statement:
+ *         Expression
+ *         Print
+ *         Quit
+ * Print:
+ *         ;
+ * Quit:
+ *         q
+ * Expression:
+ *         Term
+ *         Expression + Term
+ *         Expression - Term
+ * Term:
+ *         Primary
+ *         Term * Primary
+ *         Term / Primary
+ *         Term % Primary
+ * Primary:
+ *         Number
+ *         ( Expression )
+ *         -Primary
+ *         +Primary
+ * Number:
+ *         floating-point-literal
+ *
+ * Input comes from cin through the Token_stream called ts.
+ */
 #include "../lib/std_lib_facilities.h"
 
 const char number = '8'; // t.kind == number means that t is a number Token
 const char quit = 'q';   // t.kind == quit means that t is a quit Token
 const char print = ';';  // t.kind == print means that t is a print Token
-const char prompt = "< ";
-const char result = "= ";
+const string prompt = "> ";
+const string result = "= ";
 
 /**
  * A conventional way of reading stuff from input and store it
@@ -51,6 +87,7 @@ class Token_stream {
 public:
   Token get();           // get a token
   void putback(Token t); // put a token back
+  void ignore(char c);   // discard characters up to and including a c
 private:
   bool full{false}; // is there a token in the buffer
   Token buffer{0.0};
@@ -63,13 +100,15 @@ void Token_stream::putback(Token t) {
   full = true;
 }
 
+// read characters from cin and compose a Token
 Token Token_stream::get() {
+  // check if we already have a Token ready
   if (full) {
     full = false;
     return buffer;
   }
   char ch;
-  cin >> ch;
+  cin >> ch; // note that >> skips whitespace (space, newline, tab, etc.)
   switch (ch) {
   case print: // for "print"
   case quit:  // for "quit"
@@ -80,8 +119,8 @@ Token Token_stream::get() {
   case '*':
   case '/':
   case '%':
-    return Token{ch};
-  case '.':
+    return Token{ch}; // let each character represent itself
+  case '.':           // a floating-point-literal can start with a dot
   case '0':
   case '1':
   case '2':
@@ -99,6 +138,21 @@ Token Token_stream::get() {
   }
   default:
     error("Bad token");
+  }
+}
+
+void Token_stream::ignore(char c) {
+  // first look in buffer:
+  if (full && c == buffer.kind) {
+    full = false;
+    return;
+  }
+  full = false;
+  // now search for input:
+  char ch = 0;
+  while (cin >> ch) {
+    if (ch == c)
+      return;
   }
 }
 
@@ -182,20 +236,28 @@ double expression() {
   }
 }
 
+void clean_up_mess() { ts.ignore(print); }
+
 // expression evaluation loop
 void calculate() {
-  while (cin) {
-    cout << prompt;
-    Token t = ts.get();
-    while (t.kind == print)
-      t = ts.get(); // eat ';'
-    if (t.kind == quit) {
-      keep_window_open();
-      return;
+  while (cin)
+    try {
+      {
+        cout << prompt;
+        Token t = ts.get();
+        while (t.kind == print)
+          t = ts.get(); // eat ';'
+        if (t.kind == quit) {
+          keep_window_open();
+          return;
+        }
+        ts.putback(t);
+        cout << result << expression() << '\n';
+      }
+    } catch (exception &e) {
+      cerr << e.what() << '\n';
+      clean_up_mess();
     }
-    ts.putback(t);
-    cout << result << expression() << '\n';
-  }
 }
 
 // main loop and deal with errors
