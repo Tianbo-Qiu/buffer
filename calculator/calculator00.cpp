@@ -8,13 +8,22 @@
  * Input from cin; output form cout.
  * The grammar for input is:
  * Statement:
- *         Expression
+ *         Statement
  *         Print
  *         Quit
  * Print:
  *         ;
  * Quit:
  *         q
+ * Statement:
+ *         Declaration
+ *         Expression
+ * Declaration:
+ *         "let" Name "=" Expression
+ * Name:
+ *         character
+ *         Name + character
+ *         Name + digit
  * Expression:
  *         Term
  *         Expression + Term
@@ -41,6 +50,9 @@ const char quit = 'q';   // t.kind == quit means that t is a quit Token
 const char print = ';';  // t.kind == print means that t is a print Token
 const string prompt = "> ";
 const string result = "= ";
+const char name = 'a';        // name token
+const char let = 'L';         // declaration token
+const string declkey = "let"; // declaration key
 
 /**
  * A conventional way of reading stuff from input and store it
@@ -50,9 +62,11 @@ class Token {
 public:
   char kind;
   double value;
+  string name;
   Token(char k) : kind{k}, value{0.0} {}
   Token(char k, double v) : kind{k}, value{v} {}
   Token(double v) : kind{number}, value{v} {}
+  Token(char ch, string n) : kind{ch}, name{n} {}
 };
 
 /**
@@ -112,6 +126,7 @@ Token Token_stream::get() {
   switch (ch) {
   case print: // for "print"
   case quit:  // for "quit"
+  case '=':   // for declaration and assignment
   case '(':
   case ')':
   case '+':
@@ -137,6 +152,16 @@ Token Token_stream::get() {
     return Token{val};
   }
   default:
+    if (isalpha(ch)) {
+      string s;
+      s += ch;
+      while (cin.get(ch) && (isalpha(ch) || isdigit(ch)))
+        s += ch;
+      cin.putback(ch);
+      if (s == declkey)
+        return Token{let}; // decalration keyword
+      return Token{name, s};
+    }
     error("Bad token");
   }
 }
@@ -156,8 +181,80 @@ void Token_stream::ignore(char c) {
   }
 }
 
-Token_stream ts;     // provides get() and putback()
+Token_stream ts; // provides get() and putback()
+
+class Variable {
+public:
+  string name;
+  double value;
+};
+
+vector<Variable> var_table;
+
+// return the value of the variable named s
+double get_value(string s) {
+  for (const Variable &v : var_table)
+    if (v.name == s)
+      return v.value;
+  error("get: undefined variable ", s);
+}
+
+// set the Variable named s to d
+void set_value(string s, double d) {
+  for (Variable &v : var_table) {
+    if (v.name == s) {
+      v.value = d;
+      return;
+    }
+    error("set: undefined variable ", s);
+  }
+}
+
+// is var declared in var_table
+bool is_declared(string var) {
+  for (const Variable &v : var_table) {
+    if (v.name == var)
+      return true;
+  }
+  return false;
+}
+
+// add { var, val } to var_table
+double define_name(string var, double val) {
+  if (is_declared(var))
+    error(var, " declared twice");
+  var_table.push_back(Variable{var, val});
+  return val;
+}
+
 double expression(); // declaration so that primary() can call expression()
+
+// assume we have seen "let"
+// handle: name = expression
+// declare a variable called "name" with the initial value "expression"
+double declaration() {
+  Token t = ts.get();
+  if (t.kind != name)
+    error("name expected in declaration");
+  string var_name = t.name;
+  Token t2 = ts.get();
+  if (t2.kind != '=')
+    error("= missing in declartion of ", var_name);
+  double d = expression();
+  define_name(var_name, d);
+  return d;
+}
+
+double statement() {
+  Token t = ts.get();
+  switch (t.kind) {
+  case let:
+    return declaration();
+  default:
+    ts.putback(t);
+    return expression();
+  }
+}
 
 // deal with numbers and parentheses
 double primary() {
@@ -248,11 +345,10 @@ void calculate() {
         while (t.kind == print)
           t = ts.get(); // eat ';'
         if (t.kind == quit) {
-          keep_window_open();
           return;
         }
         ts.putback(t);
-        cout << result << expression() << '\n';
+        cout << result << statement() << '\n';
       }
     } catch (exception &e) {
       cerr << e.what() << '\n';
@@ -263,6 +359,8 @@ void calculate() {
 // main loop and deal with errors
 int main() {
   try {
+    define_name("pi", 3.1415926535);
+    define_name("e", 2.7182818284);
     calculate();
     keep_window_open();
     return 0;
